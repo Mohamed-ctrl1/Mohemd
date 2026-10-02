@@ -1,0 +1,872 @@
+<title>مُحاكي الحركة الدائرية</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: lab stations stacked down a graph-paper page; the simulator is a raised panel = canvas + instrument rail (2 cols -> 1 col under 880px) */
+:root{
+  --paper:#e9edf4;
+  --surface:#fbfcfe;
+  --surface-2:#f1f4fa;
+  --line:#ccd5e4;
+  --line-soft:#dde4ef;
+  --ink:#14203a;
+  --ink-2:#55618199;
+  --ink-mid:#556181;
+  --vel:#0b7a6d;
+  --acc:#bc4a12;
+  --rad:#6a46b5;
+  --good:#17793f;
+  --bad:#b11f2a;
+  --font-d:"Rubik","IBM Plex Sans Arabic",system-ui,sans-serif;
+  --font-b:"IBM Plex Sans Arabic","Rubik",system-ui,sans-serif;
+  --font-m:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0e1526; --surface:#151e33; --surface-2:#1b2540; --line:#2a3550; --line-soft:#222c46;
+    --ink:#e9effc; --ink-2:#94a3c4aa; --ink-mid:#9aa8c9;
+    --vel:#3ed5be; --acc:#ff9a5c; --rad:#b89dff; --good:#4ddc8a; --bad:#ff8080;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0e1526; --surface:#151e33; --surface-2:#1b2540; --line:#2a3550; --line-soft:#222c46;
+  --ink:#e9effc; --ink-2:#94a3c4aa; --ink-mid:#9aa8c9;
+  --vel:#3ed5be; --acc:#ff9a5c; --rad:#b89dff; --good:#4ddc8a; --bad:#ff8080;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+body{
+  direction:rtl; text-align:right;
+  background-color:var(--paper);
+  background-image:linear-gradient(var(--line-soft) 1px, transparent 1px), linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+  background-size:28px 28px;
+  color:var(--ink);
+  font-family:var(--font-b);
+  font-size:16px; line-height:1.75;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:1080px; margin:0 auto; padding-inline:18px; padding-block:0}
+h1,h2,h3{font-family:var(--font-d); line-height:1.3; text-wrap:balance; margin:0}
+h1{font-size:clamp(1.7rem,5.4vw,2.6rem); font-weight:700; letter-spacing:-.01em}
+h2{font-size:clamp(1.25rem,3.6vw,1.6rem); font-weight:600}
+h3{font-size:1.05rem; font-weight:600}
+p{margin:.5rem 0}
+a{color:var(--rad)}
+.lbl{font-size:.72rem; font-weight:600; letter-spacing:.09em; color:var(--ink-mid); text-transform:uppercase}
+.num{font-family:var(--font-m); font-variant-numeric:tabular-nums; unicode-bidi:isolate}
+.muted{color:var(--ink-mid)}
+.sm{font-size:.9rem}
+
+/* header */
+header.top{padding-block:30px 14px}
+.kicker{font-family:var(--font-m); font-size:.78rem; letter-spacing:.14em; color:var(--rad); font-weight:600}
+.lede{max-width:60ch; color:var(--ink-mid); margin-top:.6rem}
+.legend{display:flex; flex-wrap:wrap; gap:8px 14px; margin-top:16px}
+.key{display:inline-flex; align-items:center; gap:7px; font-size:.86rem; font-weight:500}
+.key i{width:22px; height:3px; border-radius:2px; display:block}
+
+/* nav */
+nav.chips{position:sticky; top:env(safe-area-inset-top, 0px); z-index:20; background:color-mix(in srgb, var(--paper) 88%, transparent); backdrop-filter:blur(8px); border-block:1px solid var(--line); margin-block:18px 0}
+.chips-in{max-width:1080px; margin:0 auto; padding:9px 18px; display:flex; gap:8px; overflow-x:auto; scrollbar-width:none}
+.chips-in::-webkit-scrollbar{display:none}
+.chips-in a{white-space:nowrap; font-size:.88rem; font-weight:500; text-decoration:none; color:var(--ink-mid); border:1px solid var(--line); border-radius:999px; padding:4px 12px; background:var(--surface)}
+.chips-in a:hover{color:var(--ink); border-color:var(--rad)}
+
+section.station{padding-block:34px; border-top:1px solid var(--line)}
+section.station:first-of-type{border-top:0}
+.station > h2{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
+.station > h2 small{font-family:var(--font-b); font-size:.82rem; font-weight:400; color:var(--ink-mid)}
+
+/* simulator panel */
+.panel{background:var(--surface); border:1px solid var(--line); border-radius:16px; box-shadow:0 14px 34px -22px #14203a40; overflow:hidden; margin-top:16px}
+.sim-grid{display:grid; grid-template-columns:1.35fr .95fr}
+@media (max-width:880px){ .sim-grid{grid-template-columns:1fr} }
+.stage{position:relative; border-inline-start:1px solid var(--line)}
+@media (max-width:880px){ .stage{border-inline-start:0; border-bottom:1px solid var(--line)} }
+canvas#sim{display:block; width:100%; height:clamp(320px,52vw,470px); touch-action:pan-y}
+.stage-tag{position:absolute; inset-block-start:10px; inset-inline-start:12px; font-family:var(--font-m); font-size:.72rem; color:var(--ink-mid); background:color-mix(in srgb, var(--surface) 80%, transparent); padding:2px 8px; border-radius:6px}
+.rail{padding:16px; display:flex; flex-direction:column; gap:16px; min-width:0}
+
+/* controls */
+.ctrl{display:flex; flex-direction:column; gap:5px}
+.ctrl-head{display:flex; justify-content:space-between; align-items:baseline; gap:8px}
+.ctrl-head b{font-family:var(--font-m); font-size:.95rem; font-weight:600}
+input[type=range]{width:100%; accent-color:var(--rad); margin:0}
+.btns{display:flex; flex-wrap:wrap; gap:8px}
+button{font-family:var(--font-b); font-size:.9rem; font-weight:500; color:var(--ink); background:var(--surface-2); border:1px solid var(--line); border-radius:9px; padding:7px 13px; cursor:pointer}
+button:hover{border-color:var(--rad)}
+button.go{background:var(--rad); border-color:var(--rad); color:#fff}
+button.cut{background:var(--acc); border-color:var(--acc); color:#fff}
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible{outline:2px solid var(--rad); outline-offset:2px}
+.toggles{display:flex; flex-wrap:wrap; gap:6px 12px; font-size:.88rem}
+.toggles label{display:inline-flex; align-items:center; gap:6px; cursor:pointer}
+.toggles input{accent-color:var(--rad)}
+
+/* readout tiles */
+.tiles{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:12px; overflow:hidden}
+@media (max-width:1000px){ .tiles{grid-template-columns:repeat(2,1fr)} }
+.tile{background:var(--surface); padding:9px 11px; min-width:0}
+.tile .lbl{display:block; font-size:.68rem}
+.tile .v{font-family:var(--font-m); font-variant-numeric:tabular-nums; font-size:1.12rem; font-weight:600; unicode-bidi:isolate; display:block; line-height:1.35}
+.tile .u{font-size:.72rem; color:var(--ink-mid); font-family:var(--font-b)}
+.tile.vel .v{color:var(--vel)} .tile.acc .v{color:var(--acc)} .tile.rad .v{color:var(--rad)}
+
+/* chart */
+canvas#chart{display:block; width:100%; height:260px}
+.chart-box{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:12px; margin-top:16px}
+
+/* cards */
+.cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(248px,1fr)); gap:14px; margin-top:16px}
+.card{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px; min-width:0}
+.card h3{margin-bottom:6px}
+.fx{font-family:var(--font-m); font-size:1.08rem; font-weight:600; direction:ltr; text-align:left; display:flex; align-items:center; gap:.4em; flex-wrap:wrap; background:var(--surface-2); border-radius:8px; padding:8px 10px; margin:8px 0; overflow-x:auto}
+.frac{display:inline-flex; flex-direction:column; text-align:center; vertical-align:middle}
+.frac > span:first-child{border-bottom:1.6px solid currentColor; padding:0 .3em}
+.frac > span:last-child{padding:0 .3em}
+.unit{font-family:var(--font-m); font-size:.82rem; color:var(--ink-mid)}
+.trap{font-size:.88rem; border-inline-start:3px solid var(--acc); padding-inline-start:9px; color:var(--ink-mid); margin-top:8px}
+
+/* calculators */
+.calc{display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-top:10px}
+.f{display:flex; flex-direction:column; gap:3px; min-width:92px; flex:1}
+.f label{font-size:.78rem; color:var(--ink-mid); font-weight:500}
+input[type=number]{font-family:var(--font-m); font-size:.95rem; width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--ink)}
+.out{font-family:var(--font-m); font-size:.95rem; background:var(--surface-2); border:1px dashed var(--line); border-radius:9px; padding:10px 12px; margin-top:10px; line-height:2}
+.out b{color:var(--rad)}
+.out .warn{color:var(--bad); font-weight:600}
+
+/* table */
+.tblwrap{overflow-x:auto; margin-top:16px; border:1px solid var(--line); border-radius:12px; background:var(--surface)}
+table{border-collapse:collapse; width:100%; min-width:520px; font-size:.93rem}
+th,td{padding:9px 12px; text-align:right; border-bottom:1px solid var(--line-soft)}
+th{font-family:var(--font-d); font-weight:600; font-size:.85rem; color:var(--ink-mid); background:var(--surface-2)}
+tr:last-child td{border-bottom:0}
+td.f-cell{font-family:var(--font-m); direction:ltr; text-align:left}
+
+/* mistakes */
+ol.mist{list-style:none; padding:0; margin:16px 0 0; display:grid; gap:10px}
+ol.mist li{background:var(--surface); border:1px solid var(--line); border-inline-start:4px solid var(--bad); border-radius:10px; padding:11px 14px}
+ol.mist b{display:block; color:var(--bad)}
+ol.mist span{color:var(--ink-mid); font-size:.93rem}
+
+/* quiz */
+.q{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px; margin-top:12px}
+.q .qh{display:flex; gap:9px; align-items:baseline}
+.q .qn{font-family:var(--font-m); font-weight:600; color:var(--rad); flex:none}
+.opts{display:grid; gap:7px; margin-top:10px}
+.opt{text-align:right; width:100%; padding:8px 12px; border-radius:9px; background:var(--surface-2); font-size:.93rem; line-height:1.6}
+.opt.ok{background:color-mix(in srgb, var(--good) 16%, var(--surface)); border-color:var(--good); color:var(--ink)}
+.opt.no{background:color-mix(in srgb, var(--bad) 14%, var(--surface)); border-color:var(--bad); color:var(--ink)}
+.exp{margin-top:9px; font-size:.9rem; background:var(--surface-2); border-radius:9px; padding:9px 12px; border-inline-start:3px solid var(--good)}
+.score{position:sticky; bottom:env(safe-area-inset-bottom, 0px); display:flex; justify-content:space-between; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:10px 14px; margin-top:14px; font-weight:600}
+.score .num{font-size:1.15rem; color:var(--rad)}
+
+footer{border-top:1px solid var(--line); padding-block:22px 34px; color:var(--ink-mid); font-size:.88rem}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important; animation:none!important} }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="kicker">فيزياء · الصف الحادي عشر</div>
+    <h1>مُحاكي الحركة الدائرية</h1>
+    <p class="lede">كرة مربوطة بحبل وتدور بسرعة ثابتة المقدار. حرّك نصف القطر والكتلة والسرعة الزاوية، وشوف كيف تتغير المتجهات والأرقام لحظة بلحظة — وبعدين اقطع الحبل وشوف وين تطير.</p>
+    <div class="legend">
+      <span class="key"><i style="background:var(--vel)"></i> السرعة الخطية v — مماسية</span>
+      <span class="key"><i style="background:var(--acc)"></i> التسارع a<sub>c</sub> والقوة F<sub>c</sub> — نحو المركز</span>
+      <span class="key"><i style="background:var(--rad)"></i> نصف القطر r — الحبل</span>
+    </div>
+  </header>
+</div>
+
+<nav class="chips">
+  <div class="chips-in">
+    <a href="#sim-station">المحاكاة</a>
+    <a href="#graph">الرسم البياني</a>
+    <a href="#laws">القوانين</a>
+    <a href="#apps">تطبيقات الامتحان</a>
+    <a href="#mistakes">أخطاء شائعة</a>
+    <a href="#quiz">اختبار سريع</a>
+    <a href="#sheet">ورقة المراجعة</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<section class="station" id="sim-station">
+  <h2>١ · المحاكاة الحيّة <small>اضغط مسافة للتشغيل والإيقاف</small></h2>
+  <div class="panel">
+    <div class="sim-grid">
+      <div class="stage">
+        <span class="stage-tag" id="stageTag">دوران منتظم</span>
+        <canvas id="sim" aria-label="محاكاة الحركة الدائرية"></canvas>
+      </div>
+      <div class="rail">
+        <div class="ctrl">
+          <div class="ctrl-head"><span class="lbl">نصف القطر r</span><b class="num" id="rOut">1.50 m</b></div>
+          <input type="range" id="rIn" min="0.3" max="3" step="0.05" value="1.5">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head"><span class="lbl">الكتلة m</span><b class="num" id="mOut">1.00 kg</b></div>
+          <input type="range" id="mIn" min="0.1" max="5" step="0.1" value="1">
+        </div>
+        <div class="ctrl">
+          <div class="ctrl-head"><span class="lbl">السرعة الزاوية ω</span><b class="num" id="wOut">3.00 rad/s</b></div>
+          <input type="range" id="wIn" min="0.3" max="12" step="0.05" value="3">
+        </div>
+        <div class="calc" style="margin:0">
+          <div class="f"><label for="tIn">أو حدّد الزمن الدوري T (s)</label><input type="number" id="tIn" step="0.05" min="0.3"></div>
+          <div class="f"><label for="vIn">أو السرعة v (m/s)</label><input type="number" id="vIn" step="0.1" min="0.1"></div>
+        </div>
+        <div class="btns">
+          <button class="go" id="playBtn">إيقاف ⏸</button>
+          <button class="cut" id="cutBtn">اقطع الحبل ✂</button>
+          <button id="resetBtn">إعادة ↺</button>
+        </div>
+        <div class="toggles">
+          <label><input type="checkbox" id="cV" checked> متجه v</label>
+          <label><input type="checkbox" id="cA" checked> متجه a<sub>c</sub></label>
+          <label><input type="checkbox" id="cF" checked> متجه F<sub>c</sub></label>
+          <label><input type="checkbox" id="cT" checked> الأثر</label>
+        </div>
+        <div class="tiles" id="tiles">
+          <div class="tile"><span class="lbl">T الزمن الدوري</span><span class="v" id="oT">—</span><span class="u">ثانية</span></div>
+          <div class="tile"><span class="lbl">f التردد</span><span class="v" id="oF">—</span><span class="u">هرتز (لفة/ث)</span></div>
+          <div class="tile rad"><span class="lbl">ω زاوية</span><span class="v" id="oW">—</span><span class="u">rad/s</span></div>
+          <div class="tile vel"><span class="lbl">v خطية</span><span class="v" id="oV">—</span><span class="u">m/s</span></div>
+          <div class="tile acc"><span class="lbl">a<sub>c</sub> تسارع</span><span class="v" id="oA">—</span><span class="u">m/s²</span></div>
+          <div class="tile acc"><span class="lbl">F<sub>c</sub> قوة</span><span class="v" id="oFc">—</span><span class="u">نيوتن</span></div>
+          <div class="tile"><span class="lbl">θ الزاوية</span><span class="v" id="oTh">—</span><span class="u">درجة</span></div>
+          <div class="tile"><span class="lbl">عدد اللفات</span><span class="v" id="oN">—</span><span class="u">لفة</span></div>
+        </div>
+        <p class="sm muted" style="margin:0">المقدار ثابت، الاتجاه يتغير — لهذا يوجد تسارع رغم ثبات السرعة. اقطع الحبل: القوة المركزية تختفي، فتكمل الكرة بخط مستقيم باتجاه المماس (قانون نيوتن الأول).</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="station" id="graph">
+  <h2>٢ · العلاقة بين القوة والسرعة <small>متحرك مع المحاكاة</small></h2>
+  <p class="muted sm">المنحنى هو F<sub>c</sub> = m·v²/r بالقيم الحالية للكتلة ونصف القطر. النقطة الممتلئة = حالتك الآن.</p>
+  <div class="chart-box"><canvas id="chart" aria-label="منحنى القوة المركزية مقابل السرعة"></canvas></div>
+  <p class="sm muted" id="chartNote"></p>
+</section>
+
+<section class="station" id="laws">
+  <h2>٣ · القوانين الأساسية</h2>
+  <div class="cards">
+    <div class="card">
+      <h3>السرعة الزاوية ω</h3>
+      <div class="fx">ω = <span class="frac"><span>2π</span><span>T</span></span> = 2πf</div>
+      <p class="sm">كم زاوية (راديان) يقطع الجسم في الثانية. لفة كاملة = 2π راديان.</p>
+      <div class="unit">الوحدة: rad/s</div>
+      <div class="trap">تحويل: 60 لفة/دقيقة = 1 لفة/ثانية → ω = 2π ≈ 6.28 rad/s</div>
+    </div>
+    <div class="card">
+      <h3>الزمن الدوري والتردد</h3>
+      <div class="fx">T = <span class="frac"><span>1</span><span>f</span></span> &nbsp; , &nbsp; f = <span class="frac"><span>1</span><span>T</span></span></div>
+      <p class="sm">T = زمن لفة كاملة. f = عدد اللفات في الثانية. كل واحد مقلوب الثاني.</p>
+      <div class="unit">T بالثانية · f بالهرتز</div>
+    </div>
+    <div class="card">
+      <h3>السرعة الخطية v</h3>
+      <div class="fx">v = ωr = <span class="frac"><span>2πr</span><span>T</span></span></div>
+      <p class="sm">اتجاهها <b>مماس</b> للدائرة دائمًا، لا نحو المركز ولا للخارج.</p>
+      <div class="unit">الوحدة: m/s</div>
+      <div class="trap">نفس ω: كل ما بَعُدت عن المركز زادت v. لهذا الطرف الخارجي للمروحة أسرع.</div>
+    </div>
+    <div class="card">
+      <h3>التسارع المركزي a<sub>c</sub></h3>
+      <div class="fx">a<sub>c</sub> = <span class="frac"><span>v²</span><span>r</span></span> = ω²r</div>
+      <p class="sm">اتجاهه نحو مركز الدائرة دائمًا. وظيفته تغيير <b>اتجاه</b> السرعة فقط، لا مقدارها.</p>
+      <div class="unit">الوحدة: m/s²</div>
+      <div class="trap">يسمى أيضًا التسارع الجذب‌مركزي. عمودي على v في كل لحظة.</div>
+    </div>
+    <div class="card">
+      <h3>القوة المركزية F<sub>c</sub></h3>
+      <div class="fx">F<sub>c</sub> = m·<span class="frac"><span>v²</span><span>r</span></span> = mω²r</div>
+      <p class="sm">هي محصلة القوى باتجاه المركز (قانون نيوتن الثاني)، وليست قوة جديدة من نوع خاص.</p>
+      <div class="unit">الوحدة: نيوتن (N)</div>
+      <div class="trap">مين يلعب دورها؟ الحبل (شد) · الطريق (احتكاك) · الجذب (أقمار) · الجدار (منحنى).</div>
+    </div>
+    <div class="card">
+      <h3>العلاقات الأُسّية — للحفظ السريع</h3>
+      <div class="fx">v ×2 → F<sub>c</sub> ×4</div>
+      <div class="fx">r ×2 (v ثابتة) → F<sub>c</sub> ÷2</div>
+      <div class="fx">m ×2 → F<sub>c</sub> ×2</div>
+      <p class="sm">السرعة بالتربيع، لهذا الخطر الأكبر على المنحنيات هو السرعة لا الكتلة.</p>
+    </div>
+  </div>
+</section>
+
+<section class="station" id="apps">
+  <h2>٤ · تطبيقات تجي بالامتحان <small>g = 9.8 m/s²</small></h2>
+  <div class="cards">
+    <div class="card">
+      <h3>سيارة على منحنى أفقي</h3>
+      <p class="sm">الاحتكاك هو القوة المركزية: μmg = mv²/r → الكتلة تختصر.</p>
+      <div class="fx">v<sub>max</sub> = √(μ·g·r)</div>
+      <div class="calc">
+        <div class="f"><label for="muC">معامل الاحتكاك μ</label><input type="number" id="muC" value="0.4" step="0.05" min="0.05"></div>
+        <div class="f"><label for="rC">نصف القطر r (m)</label><input type="number" id="rC" value="50" step="5" min="1"></div>
+      </div>
+      <div class="out" id="outCar"></div>
+      <div class="trap">الكتلة لا تؤثر على v<sub>max</sub> — سؤال كلاسيكي.</div>
+    </div>
+    <div class="card">
+      <h3>حلقة رأسية — أعلى نقطة</h3>
+      <p class="sm">في القمة: الوزن + قوة المسار N تتجه للأسفل نحو المركز.</p>
+      <div class="fx">N = m<span class="frac"><span>v²</span><span>r</span></span> − mg &nbsp;,&nbsp; v<sub>min</sub> = √(g·r)</div>
+      <div class="calc">
+        <div class="f"><label for="rL">r (m)</label><input type="number" id="rL" value="0.5" step="0.1" min="0.1"></div>
+        <div class="f"><label for="mL">m (kg)</label><input type="number" id="mL" value="0.2" step="0.1" min="0.05"></div>
+        <div class="f"><label for="vL">v في القمة (m/s)</label><input type="number" id="vL" value="3" step="0.2" min="0"></div>
+      </div>
+      <div class="out" id="outLoop"></div>
+      <div class="trap">لو v أقل من v<sub>min</sub> الجسم يفقد تلامسه ويسقط قبل القمة.</div>
+    </div>
+    <div class="card">
+      <h3>بندول مخروطي</h3>
+      <p class="sm">كرة معلقة بخيط طوله L تدور بدائرة أفقية وزاوية θ عن العمود.</p>
+      <div class="fx">r = L·sinθ &nbsp;,&nbsp; v = √(g·r·tanθ)</div>
+      <div class="calc">
+        <div class="f"><label for="lP">طول الخيط L (m)</label><input type="number" id="lP" value="1" step="0.1" min="0.1"></div>
+        <div class="f"><label for="aP">الزاوية θ (درجة)</label><input type="number" id="aP" value="30" step="5" min="1" max="85"></div>
+        <div class="f"><label for="mP">m (kg)</label><input type="number" id="mP" value="0.5" step="0.1" min="0.05"></div>
+      </div>
+      <div class="out" id="outPend"></div>
+      <div class="trap">شد الخيط F<sub>t</sub> = mg / cosθ — دائمًا أكبر من الوزن.</div>
+    </div>
+  </div>
+</section>
+
+<section class="station" id="mistakes">
+  <h2>٥ · أخطاء شائعة تخسر عليها علامات</h2>
+  <ol class="mist">
+    <li><b>«يوجد قوة طاردة مركزية تدفع الجسم للخارج»</b><span>بالنسبة لمراقب ثابت خارج النظام لا توجد قوة للخارج. الإحساس بالدفع للخارج هو عطالة الجسم (قانون نيوتن الأول)، ويظهر فقط كقوة وهمية في إطار دوّار.</span></li>
+    <li><b>«السرعة باتجاه المركز»</b><span>السرعة مماسية دائمًا وعمودية على نصف القطر. التسارع هو المتجه الذي نحو المركز. جرّب «اقطع الحبل» بالأعلى.</span></li>
+    <li><b>«السرعة ثابتة ⇒ لا تسارع»</b><span>ثابت المقدار فقط. تغيّر الاتجاه = تغيّر في متجه السرعة = تسارع.</span></li>
+    <li><b>نسيان تحويل لفة/دقيقة إلى rad/s</b><span>ω = 2π × (عدد اللفات ÷ 60). امتحانيًا: 300 rpm → ω = 2π×5 = 31.4 rad/s.</span></li>
+    <li><b>استخدام r بالسنتمتر</b><span>كل الحسابات بالمتر والكيلوغرام والثانية، وإلا القوة تخرج بأرقام غلط بمراتب.</span></li>
+    <li><b>«القوة المركزية تعمل شغلًا»</b><span>الشغل = صفر، لأن القوة عمودية على الإزاحة في كل لحظة. لهذا الطاقة الحركية ثابتة.</span></li>
+  </ol>
+</section>
+
+<section class="station" id="quiz">
+  <h2>٦ · اختبار سريع <small>اختر إجابة وشوف التفسير فورًا</small></h2>
+  <div id="quizBox"></div>
+  <div class="score"><span>نتيجتك</span><span><span class="num" id="scoreV">0</span> / <span class="num" id="scoreT">0</span></span><button id="quizReset">إعادة الاختبار</button></div>
+</section>
+
+<section class="station" id="sheet">
+  <h2>٧ · ورقة المراجعة</h2>
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th>الكمية</th><th>الرمز</th><th>القانون</th><th>الوحدة</th><th>الاتجاه</th></tr></thead>
+      <tbody>
+        <tr><td>الزمن الدوري</td><td class="f-cell">T</td><td class="f-cell">T = 1/f = 2π/ω</td><td>s</td><td>—</td></tr>
+        <tr><td>التردد</td><td class="f-cell">f</td><td class="f-cell">f = 1/T</td><td>Hz</td><td>—</td></tr>
+        <tr><td>السرعة الزاوية</td><td class="f-cell">ω</td><td class="f-cell">ω = 2π/T = v/r</td><td>rad/s</td><td>محور الدوران</td></tr>
+        <tr><td>السرعة الخطية</td><td class="f-cell">v</td><td class="f-cell">v = ωr = 2πr/T</td><td>m/s</td><td>مماس للدائرة</td></tr>
+        <tr><td>التسارع المركزي</td><td class="f-cell">a<sub>c</sub></td><td class="f-cell">a = v²/r = ω²r</td><td>m/s²</td><td>نحو المركز</td></tr>
+        <tr><td>القوة المركزية</td><td class="f-cell">F<sub>c</sub></td><td class="f-cell">F = mv²/r = mω²r</td><td>N</td><td>نحو المركز</td></tr>
+        <tr><td>أقصى سرعة على منحنى</td><td class="f-cell">v<sub>max</sub></td><td class="f-cell">v = √(μgr)</td><td>m/s</td><td>مماس</td></tr>
+        <tr><td>أقل سرعة بقمة حلقة</td><td class="f-cell">v<sub>min</sub></td><td class="f-cell">v = √(gr)</td><td>m/s</td><td>مماس</td></tr>
+        <tr><td>شغل القوة المركزية</td><td class="f-cell">W</td><td class="f-cell">W = 0</td><td>J</td><td>عمودية على الإزاحة</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>بُني للتعلّم والتجربة — كل الأرقام محسوبة من القوانين نفسها، فجرّب قيم غريبة وشوف شو يصير. g = 9.8 m/s².</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+var G = 9.8;
+var fmt = function(x,d){ if(!isFinite(x)) return "—"; return x.toFixed(d===undefined?2:d); };
+
+/* ---------- state ---------- */
+var S = { r:1.5, m:1, om:3, play:true, th:0, revs:0, cut:false, cx:0, cy:0, cvx:0, cvy:0, trail:[], relPos:null, done:false };
+var show = { v:true, a:true, f:true, t:true };
+
+var $ = function(id){ return document.getElementById(id); };
+var cv = $("sim"), ctx = cv.getContext("2d"), dpr = 1;
+var chart = $("chart"), cctx = chart.getContext("2d");
+
+function fit(c){
+  var rect = c.getBoundingClientRect();
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  c.width = Math.max(1, Math.round(rect.width * dpr));
+  c.height = Math.max(1, Math.round(rect.height * dpr));
+  var g = c.getContext("2d");
+  g.setTransform(dpr,0,0,dpr,0,0);
+  return { w: rect.width, h: rect.height };
+}
+var size = {w:600,h:400}, csize = {w:600,h:260};
+function resize(){ size = fit(cv); csize = fit(chart); drawChart(); }
+window.addEventListener("resize", resize);
+
+function tok(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim() || "#888"; }
+
+/* ---------- derived physics ---------- */
+function phys(){
+  var v = S.om * S.r;
+  var T = 2*Math.PI / S.om;
+  var f = 1/T;
+  var ac = S.om * S.om * S.r;
+  return { v:v, T:T, f:f, ac:ac, Fc:S.m*ac };
+}
+
+/* ---------- drawing helpers ---------- */
+function arrow(g, x1, y1, x2, y2, color, width, label){
+  var dx = x2-x1, dy = y2-y1, len = Math.hypot(dx,dy);
+  if(len < 2) return;
+  var ux = dx/len, uy = dy/len, head = Math.min(13, len*0.42);
+  g.save();
+  g.strokeStyle = color; g.fillStyle = color; g.lineWidth = width; g.lineCap = "round";
+  g.beginPath(); g.moveTo(x1,y1); g.lineTo(x2 - ux*head*0.75, y2 - uy*head*0.75); g.stroke();
+  g.beginPath();
+  g.moveTo(x2,y2);
+  g.lineTo(x2 - ux*head - uy*head*0.42, y2 - uy*head + ux*head*0.42);
+  g.lineTo(x2 - ux*head + uy*head*0.42, y2 - uy*head - ux*head*0.42);
+  g.closePath(); g.fill();
+  if(label){
+    g.font = "600 12px 'IBM Plex Mono', monospace";
+    g.textAlign = "center"; g.textBaseline = "middle";
+    var lx = x2 + ux*15, ly = y2 + uy*15;
+    var w = g.measureText(label).width + 8;
+    g.fillStyle = tok("--surface"); g.globalAlpha = 0.86;
+    g.fillRect(lx - w/2, ly - 9, w, 18);
+    g.globalAlpha = 1; g.fillStyle = color;
+    g.fillText(label, lx, ly);
+  }
+  g.restore();
+}
+
+function drawSim(){
+  var g = ctx, w = size.w, h = size.h;
+  var p = phys();
+  g.clearRect(0,0,w,h);
+
+  var cxp = w/2, cyp = h/2;
+  var PPM = Math.min(w,h) * 0.40 / 3.0;   // pixels per metre, fixed so r is comparable
+  var R = S.r * PPM;
+
+  /* background rings */
+  g.save();
+  g.strokeStyle = tok("--line"); g.lineWidth = 1;
+  for(var k=1;k<=3;k++){
+    g.globalAlpha = 0.5;
+    g.beginPath(); g.arc(cxp,cyp,k*PPM,0,Math.PI*2); g.stroke();
+  }
+  g.globalAlpha = 1;
+  g.font = "11px 'IBM Plex Mono', monospace"; g.fillStyle = tok("--ink-mid"); g.textAlign = "center";
+  for(var k2=1;k2<=3;k2++){ g.fillText(k2+" m", cxp + k2*PPM, cyp + 14); }
+  g.restore();
+
+  /* orbit path */
+  g.save();
+  g.setLineDash([5,6]); g.strokeStyle = tok("--rad"); g.globalAlpha = 0.45; g.lineWidth = 1.5;
+  g.beginPath(); g.arc(cxp,cyp,R,0,Math.PI*2); g.stroke();
+  g.restore();
+
+  var bx, by;
+  if(!S.cut){
+    bx = cxp + R*Math.cos(S.th);
+    by = cyp - R*Math.sin(S.th);
+  } else {
+    bx = S.cx; by = S.cy;
+  }
+
+  /* trail */
+  if(show.t && S.trail.length > 1){
+    g.save(); g.lineWidth = 3; g.lineCap = "round";
+    for(var i=1;i<S.trail.length;i++){
+      g.globalAlpha = (i/S.trail.length) * 0.5;
+      g.strokeStyle = tok("--vel");
+      g.beginPath(); g.moveTo(S.trail[i-1][0], S.trail[i-1][1]); g.lineTo(S.trail[i][0], S.trail[i][1]); g.stroke();
+    }
+    g.restore();
+  }
+
+  if(!S.cut){
+    /* angle arc */
+    g.save();
+    g.strokeStyle = tok("--ink-mid"); g.globalAlpha = 0.6; g.lineWidth = 1.4;
+    g.beginPath(); g.moveTo(cxp,cyp); g.lineTo(cxp + Math.min(R,46), cyp); g.stroke();
+    g.beginPath(); g.arc(cxp,cyp, 30, -S.th, 0); g.stroke();
+    g.globalAlpha = 1; g.fillStyle = tok("--ink-mid"); g.font = "12px 'IBM Plex Mono', monospace";
+    g.textAlign = "left"; g.textBaseline = "middle";
+    g.fillText("θ", cxp + 36*Math.cos(S.th/2) + 2, cyp - 36*Math.sin(S.th/2));
+    g.restore();
+
+    /* string / radius */
+    g.save();
+    g.strokeStyle = tok("--rad"); g.lineWidth = 2.5; g.lineCap = "round";
+    g.beginPath(); g.moveTo(cxp,cyp); g.lineTo(bx,by); g.stroke();
+    g.font = "600 12px 'IBM Plex Mono', monospace"; g.fillStyle = tok("--rad");
+    g.textAlign = "center"; g.textBaseline = "middle";
+    var mx = (cxp+bx)/2, my = (cyp+by)/2;
+    var lab = "r=" + fmt(S.r,2);
+    var lw = g.measureText(lab).width + 8;
+    g.save(); g.globalAlpha = .85; g.fillStyle = tok("--surface"); g.fillRect(mx-lw/2, my-9, lw, 18); g.restore();
+    g.fillStyle = tok("--rad"); g.fillText(lab, mx, my);
+    g.restore();
+  } else if(S.relPos){
+    /* straight tangential path after the cut */
+    g.save();
+    g.setLineDash([7,7]); g.strokeStyle = tok("--acc"); g.lineWidth = 2; g.globalAlpha = .8;
+    g.beginPath(); g.moveTo(S.relPos[0], S.relPos[1]); g.lineTo(bx,by); g.stroke();
+    g.restore();
+    g.save();
+    g.fillStyle = tok("--acc"); g.font = "600 12px 'IBM Plex Sans Arabic', sans-serif";
+    g.textAlign = "center";
+    g.fillText("مسار مستقيم مماسي", w/2, 22);
+    g.restore();
+    /* release marker */
+    g.save(); g.strokeStyle = tok("--ink-mid"); g.lineWidth = 1.5;
+    g.beginPath(); g.arc(S.relPos[0], S.relPos[1], 5, 0, Math.PI*2); g.stroke(); g.restore();
+  }
+
+  /* centre */
+  g.save();
+  g.fillStyle = tok("--ink"); g.beginPath(); g.arc(cxp,cyp,4,0,Math.PI*2); g.fill();
+  g.restore();
+
+  /* vectors */
+  var vLen = Math.max(24, Math.min(118, p.v * 11));
+  var aLen = Math.max(24, Math.min(112, p.ac * 2.0));
+  var fLen = Math.max(24, Math.min(112, p.Fc * 2.0));
+  var tx, ty, nx, ny;
+  if(!S.cut){
+    tx = -Math.sin(S.th); ty = -Math.cos(S.th);      // tangent, screen coords (ccw motion)
+    nx = -Math.cos(S.th); ny =  Math.sin(S.th);      // toward centre, screen coords
+  } else {
+    var sp = Math.hypot(S.cvx, S.cvy) || 1;
+    tx = S.cvx/sp; ty = S.cvy/sp; nx = 0; ny = 0;
+  }
+  if(show.v) arrow(g, bx, by, bx + tx*vLen, by + ty*vLen, tok("--vel"), 3, "v=" + fmt(p.v,1));
+  if(!S.cut){
+    if(show.a) arrow(g, bx + ny*7, by - nx*7, bx + nx*aLen + ny*7, by + ny*aLen - nx*7, tok("--acc"), 2.4, "a=" + fmt(p.ac,1));
+    if(show.f) arrow(g, bx - ny*7, by + nx*7, bx + nx*fLen - ny*7, by + ny*fLen + nx*7, tok("--acc"), 3.4, "F=" + fmt(p.Fc,1));
+  }
+
+  /* ball — radius scales mildly with mass */
+  var br = 7 + Math.sqrt(S.m) * 3.4;
+  g.save();
+  g.fillStyle = tok("--ink");
+  g.beginPath(); g.arc(bx,by,br,0,Math.PI*2); g.fill();
+  g.fillStyle = tok("--surface"); g.font = "600 10px 'IBM Plex Mono', monospace";
+  g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillText("m", bx, by);
+  g.restore();
+}
+
+/* ---------- live chart: F_c vs v ---------- */
+function drawChart(){
+  var g = cctx, w = csize.w, h = csize.h;
+  g.clearRect(0,0,w,h);
+  var p = phys();
+  var padL = 54, padR = 14, padT = 16, padB = 34;
+  var vmax = Math.max(p.v * 1.7, 4);
+  var Fmax = S.m * vmax*vmax / S.r;
+  var X = function(v){ return padL + (v/vmax) * (w - padL - padR); };
+  var Y = function(F){ return h - padB - (F/Fmax) * (h - padT - padB); };
+
+  /* grid + ticks */
+  g.save();
+  g.font = "11px 'IBM Plex Mono', monospace"; g.fillStyle = tok("--ink-mid");
+  g.strokeStyle = tok("--line-soft"); g.lineWidth = 1;
+  var i;
+  for(i=0;i<=4;i++){
+    var fv = Fmax * i/4;
+    g.beginPath(); g.moveTo(padL, Y(fv)); g.lineTo(w-padR, Y(fv)); g.stroke();
+    g.textAlign = "right"; g.textBaseline = "middle";
+    g.fillText(fv.toFixed(fv<10?1:0), padL - 7, Y(fv));
+  }
+  for(i=0;i<=4;i++){
+    var vv = vmax * i/4;
+    g.textAlign = "center"; g.textBaseline = "top";
+    g.fillText(vv.toFixed(1), X(vv), h - padB + 7);
+  }
+  g.strokeStyle = tok("--line"); g.lineWidth = 1.4;
+  g.beginPath(); g.moveTo(padL, padT); g.lineTo(padL, h-padB); g.lineTo(w-padR, h-padB); g.stroke();
+  g.fillStyle = tok("--ink-mid"); g.textAlign = "center"; g.textBaseline = "top";
+  g.fillText("v (m/s)", (padL + w - padR)/2, h - 16);
+  g.save();
+  g.translate(16, (padT + h - padB)/2); g.rotate(-Math.PI/2);
+  g.textBaseline = "middle"; g.fillText("Fc (N)", 0, 0);
+  g.restore();
+  g.restore();
+
+  /* parabola */
+  g.save();
+  g.strokeStyle = tok("--acc"); g.lineWidth = 2.6; g.lineJoin = "round";
+  g.beginPath();
+  for(i=0;i<=120;i++){
+    var v = vmax * i/120, F = S.m*v*v/S.r;
+    if(i===0) g.moveTo(X(v), Y(F)); else g.lineTo(X(v), Y(F));
+  }
+  g.stroke();
+  /* soft fill */
+  g.lineTo(X(vmax), Y(0)); g.lineTo(X(0), Y(0)); g.closePath();
+  g.globalAlpha = 0.12; g.fillStyle = tok("--acc"); g.fill();
+  g.restore();
+
+  /* current point + guides */
+  g.save();
+  g.setLineDash([4,4]); g.strokeStyle = tok("--vel"); g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(X(p.v), h-padB); g.lineTo(X(p.v), Y(p.Fc)); g.lineTo(padL, Y(p.Fc)); g.stroke();
+  g.setLineDash([]);
+  g.fillStyle = tok("--vel");
+  g.beginPath(); g.arc(X(p.v), Y(p.Fc), 5.5, 0, Math.PI*2); g.fill();
+  g.font = "600 12px 'IBM Plex Mono', monospace"; g.fillStyle = tok("--ink");
+  g.textAlign = X(p.v) > w*0.6 ? "right" : "left"; g.textBaseline = "bottom";
+  g.fillText("(" + fmt(p.v,1) + " , " + fmt(p.Fc,1) + ")", X(p.v) + (X(p.v) > w*0.6 ? -9 : 9), Y(p.Fc) - 7);
+  g.restore();
+
+  var note = $("chartNote");
+  if(note){
+    var dbl = S.m*(2*p.v)*(2*p.v)/S.r;
+    note.textContent = "عند v = " + fmt(p.v,1) + " m/s القوة " + fmt(p.Fc,1) + " N. لو ضاعفت السرعة إلى " + fmt(2*p.v,1) + " m/s تصير القوة " + fmt(dbl,1) + " N — أربعة أضعاف، مع إن السرعة تضاعفت مرة واحدة.";
+  }
+}
+
+/* ---------- readouts ---------- */
+function setText(id, val){ var e = $(id); if(e) e.textContent = val; }
+function updateOut(){
+  var p = phys();
+  setText("rOut", fmt(S.r,2) + " m");
+  setText("mOut", fmt(S.m,2) + " kg");
+  setText("wOut", fmt(S.om,2) + " rad/s");
+  setText("oT", fmt(p.T,2));
+  setText("oF", fmt(p.f,2));
+  setText("oW", fmt(S.om,2));
+  setText("oV", fmt(p.v,2));
+  setText("oA", fmt(p.ac,2));
+  setText("oFc", fmt(p.Fc,2));
+  setText("oTh", fmt((S.th*180/Math.PI) % 360, 0));
+  setText("oN", fmt(S.revs,2));
+  var ti = $("tIn"), vi = $("vIn");
+  if(ti && document.activeElement !== ti) ti.value = p.T.toFixed(2);
+  if(vi && document.activeElement !== vi) vi.value = p.v.toFixed(2);
+  var tag = $("stageTag");
+  if(tag) tag.textContent = S.cut ? "الحبل مقطوع — لا قوة مركزية" : "دوران منتظم";
+}
+
+/* ---------- loop ---------- */
+var last = 0;
+function frame(ts){
+  if(!last) last = ts;
+  var dt = Math.min((ts - last)/1000, 0.05);
+  last = ts;
+  if(S.play && !S.done){
+    if(!S.cut){
+      S.th += S.om * dt;
+      S.revs += S.om * dt / (2*Math.PI);
+      var PPM = Math.min(size.w,size.h) * 0.40 / 3.0;
+      var bx = size.w/2 + S.r*PPM*Math.cos(S.th);
+      var by = size.h/2 - S.r*PPM*Math.sin(S.th);
+      S.trail.push([bx,by]);
+      if(S.trail.length > 90) S.trail.shift();
+    } else {
+      S.cx += S.cvx * dt; S.cy += S.cvy * dt;
+      S.trail.push([S.cx, S.cy]);
+      if(S.trail.length > 160) S.trail.shift();
+      if(S.cx < -40 || S.cx > size.w+40 || S.cy < -40 || S.cy > size.h+40) S.done = true;
+    }
+  }
+  drawSim();
+  updateOut();
+  requestAnimationFrame(frame);
+}
+
+/* ---------- controls ---------- */
+function bindRange(id, key, after){
+  var el = $(id);
+  if(!el) return;
+  el.addEventListener("input", function(){
+    S[key] = parseFloat(el.value);
+    if(after) after();
+    drawChart();
+  });
+}
+bindRange("rIn","r");
+bindRange("mIn","m");
+bindRange("wIn","om");
+
+var tIn = $("tIn");
+if(tIn) tIn.addEventListener("input", function(){
+  var T = parseFloat(tIn.value);
+  if(T > 0.05){ S.om = Math.min(12, Math.max(0.3, 2*Math.PI/T)); $("wIn").value = S.om; drawChart(); }
+});
+var vIn = $("vIn");
+if(vIn) vIn.addEventListener("input", function(){
+  var v = parseFloat(vIn.value);
+  if(v > 0){ S.om = Math.min(12, Math.max(0.3, v/S.r)); $("wIn").value = S.om; drawChart(); }
+});
+
+function togglePlay(){
+  S.play = !S.play;
+  $("playBtn").textContent = S.play ? "إيقاف ⏸" : "تشغيل ▶";
+}
+$("playBtn").addEventListener("click", togglePlay);
+
+$("cutBtn").addEventListener("click", function(){
+  if(S.cut){ reset(); return; }
+  var PPM = Math.min(size.w,size.h) * 0.40 / 3.0;
+  var p = phys();
+  S.cx = size.w/2 + S.r*PPM*Math.cos(S.th);
+  S.cy = size.h/2 - S.r*PPM*Math.sin(S.th);
+  S.relPos = [S.cx, S.cy];
+  S.cvx = -Math.sin(S.th) * p.v * PPM;
+  S.cvy = -Math.cos(S.th) * p.v * PPM;
+  S.cut = true; S.done = false; S.trail = []; S.play = true;
+  $("playBtn").textContent = "إيقاف ⏸";
+  $("cutBtn").textContent = "أعِد الحبل ↺";
+});
+
+function reset(){
+  S.cut = false; S.done = false; S.th = 0; S.revs = 0; S.trail = []; S.relPos = null;
+  S.play = true;
+  $("playBtn").textContent = "إيقاف ⏸";
+  $("cutBtn").textContent = "اقطع الحبل ✂";
+}
+$("resetBtn").addEventListener("click", reset);
+
+[["cV","v"],["cA","a"],["cF","f"],["cT","t"]].forEach(function(pair){
+  var el = $(pair[0]);
+  if(el) el.addEventListener("change", function(){ show[pair[1]] = el.checked; });
+});
+
+document.addEventListener("keydown", function(e){
+  var t = e.target.tagName;
+  if(t === "INPUT" || t === "SELECT" || t === "TEXTAREA") return;
+  if(e.code === "Space"){ e.preventDefault(); togglePlay(); }
+});
+
+/* ---------- scenario calculators ---------- */
+function carCalc(){
+  var mu = parseFloat($("muC").value), r = parseFloat($("rC").value);
+  var box = $("outCar");
+  if(!(mu > 0) || !(r > 0)){ box.innerHTML = '<span class="warn">أدخل قيمًا أكبر من صفر.</span>'; return; }
+  var v = Math.sqrt(mu * G * r);
+  box.innerHTML = "v<sub>max</sub> = √(" + fmt(mu,2) + " × 9.8 × " + fmt(r,1) + ") = <b>" + fmt(v,2) + " m/s</b><br>" +
+                  "أي <b>" + fmt(v*3.6,1) + " km/h</b> — فوقها تنزلق السيارة للخارج.<br>" +
+                  '<span class="muted">لاحظ: الكتلة غير موجودة في القانون.</span>';
+}
+function loopCalc(){
+  var r = parseFloat($("rL").value), m = parseFloat($("mL").value), v = parseFloat($("vL").value);
+  var box = $("outLoop");
+  if(!(r > 0) || !(m > 0) || !(v >= 0)){ box.innerHTML = '<span class="warn">تحقق من القيم.</span>'; return; }
+  var vmin = Math.sqrt(G * r);
+  var N = m*v*v/r - m*G;
+  var html = "v<sub>min</sub> = √(9.8 × " + fmt(r,2) + ") = <b>" + fmt(vmin,2) + " m/s</b><br>" +
+             "F<sub>c</sub> اللازمة = m·v²/r = <b>" + fmt(m*v*v/r,2) + " N</b> · الوزن mg = " + fmt(m*G,2) + " N<br>";
+  if(N >= 0) html += "قوة المسار في القمة N = <b>" + fmt(N,2) + " N</b> — الجسم يكمل اللفة.";
+  else html += '<span class="warn">N سالبة ⇒ السرعة غير كافية، الجسم يفارق المسار ويسقط.</span> تحتاج ' + fmt(vmin,2) + " m/s على الأقل.";
+  box.innerHTML = html;
+}
+function pendCalc(){
+  var L = parseFloat($("lP").value), a = parseFloat($("aP").value), m = parseFloat($("mP").value);
+  var box = $("outPend");
+  if(!(L > 0) || !(a > 0) || a >= 90 || !(m > 0)){ box.innerHTML = '<span class="warn">الزاوية بين 1 و 89 درجة.</span>'; return; }
+  var th = a * Math.PI/180;
+  var r = L * Math.sin(th);
+  var v = Math.sqrt(G * r * Math.tan(th));
+  var Ft = m * G / Math.cos(th);
+  var T = 2*Math.PI*Math.sqrt(L*Math.cos(th)/G);
+  box.innerHTML = "r = L·sinθ = <b>" + fmt(r,3) + " m</b><br>" +
+                  "v = √(g·r·tanθ) = <b>" + fmt(v,2) + " m/s</b><br>" +
+                  "شد الخيط F<sub>t</sub> = mg/cosθ = <b>" + fmt(Ft,2) + " N</b> (الوزن " + fmt(m*G,2) + " N)<br>" +
+                  "الزمن الدوري T = <b>" + fmt(T,2) + " s</b>";
+}
+["muC","rC"].forEach(function(id){ $(id).addEventListener("input", carCalc); });
+["rL","mL","vL"].forEach(function(id){ $(id).addEventListener("input", loopCalc); });
+["lP","aP","mP"].forEach(function(id){ $(id).addEventListener("input", pendCalc); });
+carCalc(); loopCalc(); pendCalc();
+
+/* ---------- quiz ---------- */
+var QS = [
+  { q:"جسم يتحرك على مسار دائري بسرعة ثابتة المقدار. هل يوجد تسارع؟",
+    o:["لا، لأن مقدار السرعة لا يتغير","نعم، لأن اتجاه السرعة يتغير باستمرار","نعم، فقط إذا زادت السرعة","لا يمكن تحديد ذلك"],
+    c:1, e:"السرعة متجه. تغيّر الاتجاه وحده يكفي لوجود تسارع، واتجاهه نحو المركز." },
+  { q:"اتجاه السرعة الخطية في أي لحظة يكون:",
+    o:["نحو مركز الدائرة","بعيدًا عن المركز","مماسًا للدائرة","باتجاه القوة المركزية"],
+    c:2, e:"السرعة مماسية وعمودية على نصف القطر. لهذا عند قطع الحبل يطير الجسم بخط مستقيم مماسي." },
+  { q:"إذا تضاعفت السرعة v وبقي r ثابتًا، فإن القوة المركزية:",
+    o:["تتضاعف","تصبح 4 أضعاف","تنقص للنصف","لا تتغير"],
+    c:1, e:"F = mv²/r والسرعة بالتربيع، فتضاعفها يعني ×4." },
+  { q:"إذا تضاعف نصف القطر وبقيت v ثابتة، فإن F المركزية:",
+    o:["تتضاعف","تصبح 4 أضعاف","تصبح النصف","تصبح الربع"],
+    c:2, e:"r في المقام، فمضاعفته تنصّف القوة." },
+  { q:"ما حقيقة «القوة الطاردة المركزية»؟",
+    o:["قوة حقيقية تدفع الجسم للخارج","قوة وهمية تظهر في إطار دوّار فقط","هي نفسها القوة المركزية","هي قوة الاحتكاك"],
+    c:1, e:"بالنسبة لمراقب ثابت لا توجد قوة للخارج؛ الإحساس بها هو عطالة الجسم." },
+  { q:"جسم يكمل 120 لفة في الدقيقة. ω تساوي تقريبًا:",
+    o:["2 rad/s","4π ≈ 12.6 rad/s","120 rad/s","2π ≈ 6.28 rad/s"],
+    c:1, e:"120 لفة/دقيقة = 2 لفة/ثانية ⇒ ω = 2π×2 = 4π ≈ 12.6 rad/s." },
+  { q:"أقل سرعة لجسم في أعلى حلقة رأسية نصف قطرها 0.5 m:",
+    o:["2.21 m/s","4.9 m/s","9.8 m/s","0.5 m/s"],
+    c:0, e:"v = √(gr) = √(9.8×0.5) = √4.9 ≈ 2.21 m/s، عند هذه السرعة الوزن وحده يوفر القوة المركزية." },
+  { q:"سيارة على منحنى r = 50 m ومعامل الاحتكاك 0.4. أقصى سرعة:",
+    o:["20 m/s","196 m/s","14 m/s","9.8 m/s"],
+    c:2, e:"v = √(μgr) = √(0.4×9.8×50) = √196 = 14 m/s." },
+  { q:"الشغل الذي تبذله القوة المركزية خلال لفة كاملة:",
+    o:["صفر","يساوي الطاقة الحركية","يساوي mv²/r","يعتمد على نصف القطر"],
+    c:0, e:"القوة عمودية على الإزاحة في كل لحظة ⇒ W = 0، لذلك الطاقة الحركية ثابتة." },
+  { q:"ما الذي يؤدي دور القوة المركزية للقمر في دورانه حول الأرض؟",
+    o:["الاحتكاك","قوة الجذب بين الأرض والقمر","قوة الدفع الذاتي","القوة الطاردة المركزية"],
+    c:1, e:"القوة المركزية ليست نوعًا جديدًا من القوى — هنا الجذب هو من يلعب دورها." }
+];
+var answered = {};
+function buildQuiz(){
+  var box = $("quizBox");
+  box.innerHTML = "";
+  answered = {};
+  QS.forEach(function(item, qi){
+    var d = document.createElement("div");
+    d.className = "q";
+    var opts = item.o.map(function(txt, oi){
+      return '<button class="opt" data-q="' + qi + '" data-o="' + oi + '">' + txt + "</button>";
+    }).join("");
+    d.innerHTML = '<div class="qh"><span class="qn">' + (qi+1) + '.</span><span>' + item.q + '</span></div>' +
+                  '<div class="opts">' + opts + '</div>' +
+                  '<div class="exp" id="exp' + qi + '" hidden></div>';
+    box.appendChild(d);
+  });
+  setText("scoreT", String(QS.length));
+  setText("scoreV", "0");
+}
+$("quizBox").addEventListener("click", function(ev){
+  var b = ev.target.closest(".opt");
+  if(!b) return;
+  var qi = +b.dataset.q, oi = +b.dataset.o;
+  if(answered[qi] !== undefined) return;
+  answered[qi] = oi;
+  var item = QS[qi];
+  var wrap = b.parentElement;
+  Array.prototype.forEach.call(wrap.children, function(btn){
+    var i = +btn.dataset.o;
+    if(i === item.c) btn.classList.add("ok");
+    else if(i === oi) btn.classList.add("no");
+  });
+  var exp = $("exp" + qi);
+  exp.innerHTML = (oi === item.c ? "<b>صح ✔</b> " : "<b>الإجابة الصحيحة: " + item.o[item.c] + "</b><br>") + item.e;
+  exp.hidden = false;
+  var sc = 0;
+  Object.keys(answered).forEach(function(k){ if(answered[k] === QS[k].c) sc++; });
+  setText("scoreV", String(sc));
+});
+$("quizReset").addEventListener("click", buildQuiz);
+buildQuiz();
+
+/* ---------- go ---------- */
+resize();
+updateOut();
+requestAnimationFrame(frame);
+})();
+</script>
