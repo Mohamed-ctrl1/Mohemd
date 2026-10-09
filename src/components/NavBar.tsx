@@ -24,8 +24,12 @@ export function NavBar() {
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href.split("?")[0]);
 
+  // الحشوة العلوية الآمنة تُبقي الشريط تحت نتوء الآيفون وهو ثابت أثناء التمرير
   return (
-    <header className="sticky top-0 z-40 border-b border-ink-200 bg-white/95 backdrop-blur">
+    <header
+      className="sticky top-0 z-40 border-b border-ink-200 bg-white/95 backdrop-blur"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+    >
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <Link href="/" className="flex items-center gap-2">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-600 text-sm font-bold text-white he">

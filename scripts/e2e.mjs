@@ -1,7 +1,9 @@
 import { chromium } from "playwright";
 import assert from "node:assert/strict";
 
-const BASE = process.env.E2E_BASE || "http://localhost:3100";
+const BASE = (process.env.E2E_BASE || "http://localhost:3100").replace(/\/$/, "");
+// الروابط في الصفحة مطلقة وتحمل basePath أصلًا، فتُحلّ على الأصل لا على BASE
+const ORIGIN = new URL(BASE).origin;
 const errors = [];
 let passed = 0;
 const ok = (n) => { passed++; console.log("  ✓ " + n); };
@@ -59,7 +61,7 @@ ok("حالة إكمال الدرس محفوظة وتظهر في القائمة")
 await page.goto(BASE + "/exam/setup", { waitUntil: "networkidle" });
 await page.locator("button", { hasText: "امتحان سريع" }).click();
 await page.locator("button", { hasText: "ابدأ الامتحان" }).click();
-await page.waitForURL("**/exam/run");
+await page.waitForURL(/\/exam\/run\/?(\?|$)/);
 await page.waitForSelector("article.card");
 
 async function answerCurrent(deliberatelyWrong) {
@@ -120,7 +122,7 @@ ok("لا تُكشف الإجابة الصحيحة قبل التسليم");
 // التسليم
 await page.locator("button", { hasText: "تسليم الامتحان" }).click();
 await page.locator("button", { hasText: "تسليم ونتيجة" }).click();
-await page.waitForURL("**/exam/results/**");
+await page.waitForURL(/\/exam\/results\/?(\?|$)/);
 const resultsText = await page.locator("body").innerText();
 const score = Number(resultsText.match(/من 100/) ? resultsText.match(/(\d+)\s*\n?\s*من 100/)?.[1] ?? NaN : NaN);
 assert.ok(Number.isFinite(score) && score >= 0 && score <= 100, `علامة صالحة: ${score}`);
@@ -182,7 +184,7 @@ ok("فلترة بنك الأسئلة وإظهار الشرح يعملان");
 await page.goto(BASE + "/", { waitUntil: "networkidle" });
 const navLinks = await page.locator("header nav a").evaluateAll((els) => els.map((e) => e.getAttribute("href")));
 for (const href of navLinks) {
-  const res = await page.goto(BASE + href, { waitUntil: "domcontentloaded" });
+  const res = await page.goto(new URL(href, ORIGIN).href, { waitUntil: "domcontentloaded" });
   assert.equal(res.status(), 200, href);
 }
 ok(`كل روابط شريط التنقل تعمل (${navLinks.length} رابطًا)`);
@@ -210,7 +212,7 @@ for (const label of ["إظهار التلميحات أثناء الحل", "تص�
   assert.ok(await box.isChecked(), label);
 }
 await page.locator("button", { hasText: "ابدأ الامتحان" }).click();
-await page.waitForURL("**/exam/run");
+await page.waitForURL(/\/exam\/run\/?(\?|$)/);
 await page.waitForSelector("article.card");
 assert.ok((await page.locator("text=/سؤال 1 من 5/").count()) > 0, "عدد الأسئلة المخصص مُحترم");
 ok("الامتحان المخصص يحترم الموضوع والصعوبة وعدد الأسئلة");
@@ -243,13 +245,13 @@ for (let i = 1; i < 5; i++) {
 }
 await page.locator("button", { hasText: "تسليم الامتحان" }).click();
 await page.locator("button", { hasText: "تسليم ونتيجة" }).click();
-await page.waitForURL("**/exam/results/**");
+await page.waitForURL(/\/exam\/results\/?(\?|$)/);
 const retryBtn = page.locator("button", { hasText: "إعادة حل الأسئلة الخاطئة" }).first();
 const retryLabel = await retryBtn.innerText();
 const wrongCount = Number(retryLabel.match(/\((\d+)\)/)[1]);
 assert.ok(wrongCount > 0, `يوجد أخطاء لإعادة حلها: ${retryLabel}`);
 await retryBtn.click();
-await page.waitForURL("**/exam/run");
+await page.waitForURL(/\/exam\/run\/?(\?|$)/);
 await page.waitForSelector("article.card");
 const retryTotal = Number((await page.locator("text=/سؤال 1 من \\d+/").first().innerText()).match(/من (\d+)/)[1]);
 assert.equal(retryTotal, wrongCount, "امتحان إعادة الأخطاء يحتوي الأسئلة الخاطئة فقط");
@@ -258,7 +260,7 @@ ok(`زر «إعادة حل الأسئلة الخاطئة» يبني امتحان
 // زر «امتحان جديد من المواضيع الضعيفة» من صفحة النتائج
 await page.goBack({ waitUntil: "networkidle" });
 await page.locator("a", { hasText: "امتحان جديد من المواضيع الضعيفة" }).click();
-await page.waitForURL("**/exam/setup**");
+await page.waitForURL(/\/exam\/setup\/?(\?|$)/);
 assert.ok((await page.locator("body").innerText()).includes("إعداد الامتحان"));
 ok("زر «امتحان جديد من المواضيع الضعيفة» ينقل لإعداد امتحان مهيّأ");
 
@@ -267,7 +269,7 @@ await page.goto(BASE + "/weakness", { waitUntil: "networkidle" });
 const planLinks = await page.locator("ol li a").evaluateAll((els) => els.map((e) => e.getAttribute("href")));
 assert.ok(planLinks.length >= 4, `خطوات الخطة: ${planLinks.length}`);
 for (const href of planLinks) {
-  const res = await page.goto(BASE + href, { waitUntil: "domcontentloaded" });
+  const res = await page.goto(new URL(href, ORIGIN).href, { waitUntil: "domcontentloaded" });
   assert.equal(res.status(), 200, href);
 }
 ok(`كل خطوات خطة المراجعة روابط عاملة (${planLinks.length} خطوة)`);
@@ -307,6 +309,100 @@ await mp.goto(BASE + "/", { waitUntil: "networkidle" });
 await mp.locator("button[aria-label='القائمة']").click();
 assert.ok((await mp.locator("nav a", { hasText: "نقاط ضعفي" }).count()) > 0);
 ok("قائمة الهاتف تفتح وتعرض كل الروابط");
+
+
+// =====================================================================
+// الآيفون والآيباد: PWA، أيقونة الشاشة الرئيسية، والعمل بلا إنترنت
+// =====================================================================
+const IPHONE = { width: 390, height: 844, name: "آيفون" };
+const IPAD = { width: 820, height: 1180, name: "آيباد" };
+
+for (const dev of [IPHONE, IPAD]) {
+  const c = await browser.newContext({ viewport: { width: dev.width, height: dev.height }, isMobile: dev === IPHONE, hasTouch: true });
+  const dp = await c.newPage();
+  dp.on("pageerror", (e) => errors.push(`[${dev.name} pageerror] ${e.message}`));
+  dp.on("console", (m) => { if (m.type() === "error") errors.push(`[${dev.name} console] ${m.text()}`); });
+  for (const path of ["/", "/learn/binyan-hitpael/", "/exam/setup/", "/bank/", "/weakness/", "/settings/"]) {
+    await dp.goto(BASE + path, { waitUntil: "networkidle" });
+    const over = await dp.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    assert.ok(over <= 2, `${dev.name} ${path} بلا تمرير أفقي (فرق ${over}px)`);
+  }
+  // حقول الكتابة 16px على الأقل، وإلا يكبّر iOS الصفحة تلقائيًا عند اللمس
+  await dp.goto(BASE + "/bank/", { waitUntil: "networkidle" });
+  const sizes = await dp.locator("input, select").evaluateAll((els) =>
+    els.map((e) => parseFloat(getComputedStyle(e).fontSize)),
+  );
+  assert.ok(sizes.length > 0 && sizes.every((s) => s >= 16), `أحجام الخط: ${sizes.join(",")}`);
+  await c.close();
+  ok(`${dev.name}: كل الصفحات بلا تمرير أفقي وحقول الكتابة لا تُكبّر الصفحة`);
+}
+
+// بيانات «إضافة إلى الشاشة الرئيسية»
+await page.goto(BASE + "/", { waitUntil: "networkidle" });
+const head = await page.evaluate(() => ({
+  manifest: document.querySelector("link[rel=manifest]")?.getAttribute("href") ?? null,
+  apple: document.querySelector("link[rel=apple-touch-icon]")?.getAttribute("href") ?? null,
+  capable: document.querySelector("meta[name='apple-mobile-web-app-capable']")?.getAttribute("content") ?? null,
+  capableModern: document.querySelector("meta[name='mobile-web-app-capable']")?.getAttribute("content") ?? null,
+  appTitle: document.querySelector("meta[name='apple-mobile-web-app-title']")?.getAttribute("content") ?? null,
+  theme: document.querySelector("meta[name=theme-color]")?.getAttribute("content") ?? null,
+  viewport: document.querySelector("meta[name=viewport]")?.getAttribute("content") ?? null,
+}));
+assert.ok(head.manifest, "رابط manifest موجود");
+assert.ok(head.apple, "أيقونة apple-touch-icon موجودة");
+// الصيغتان مطلوبتان: الحديثة لسفاري الجديد، والقديمة لإصدارات iOS الأقدم
+assert.equal(head.capable, "yes");
+assert.equal(head.capableModern, "yes");
+assert.ok(head.appTitle, "اسم التطبيق على الشاشة الرئيسية");
+assert.equal(head.theme, "#1559b5");
+assert.ok(head.viewport.includes("viewport-fit=cover"), head.viewport);
+ok(`بيانات التطبيق كاملة (manifest + أيقونة آيفون + اسم «${head.appTitle}»)`);
+
+// الـ manifest نفسه صالح وأيقوناته موجودة فعلًا
+const manUrl = new URL(head.manifest, BASE + "/").href;
+const manRes = await page.request.get(manUrl);
+assert.equal(manRes.status(), 200);
+const man = await manRes.json();
+assert.equal(man.display, "standalone");
+assert.ok(man.start_url.endsWith("/"), man.start_url);
+assert.ok(man.icons.length >= 3);
+assert.ok(man.icons.some((i) => i.purpose === "maskable"));
+for (const ic of [...man.icons, { src: head.apple }]) {
+  const r = await page.request.get(new URL(ic.src, BASE + "/").href);
+  assert.equal(r.status(), 200, ic.src);
+  assert.ok((await r.body()).length > 500, `${ic.src} ليست فارغة`);
+}
+ok(`manifest صالح (standalone) وكل الأيقونات (${man.icons.length + 1}) موجودة`);
+
+// العمل بلا إنترنت عبر Service Worker
+const off = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+const op = await off.newPage();
+await op.goto(BASE + "/", { waitUntil: "networkidle" });
+const swReady = await op.evaluate(async () => {
+  if (!("serviceWorker" in navigator)) return "unsupported";
+  const reg = await navigator.serviceWorker.ready;
+  return reg.active ? "active" : "inactive";
+});
+assert.equal(swReady, "active", "Service Worker مفعّل");
+// زيارة الصفحات مرة واحدة متصلًا حتى تُحفظ
+for (const p of ["/learn/", "/learn/binyan-paal/", "/exam/setup/", "/bank/"]) {
+  await op.goto(BASE + p, { waitUntil: "networkidle" });
+}
+await op.waitForTimeout(800);
+
+await off.setOffline(true);
+await op.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+const offlineHome = await op.locator("body").innerText();
+assert.ok(offlineHome.includes("لوحة التحكم"), `الرئيسية بلا إنترنت: ${offlineHome.slice(0, 120)}`);
+await op.goto(BASE + "/learn/binyan-paal/", { waitUntil: "domcontentloaded" });
+const offlineLesson = await op.locator("body").innerText();
+assert.ok(offlineLesson.length > 500, "الدرس يُعرض بلا إنترنت");
+// التفاعل يعمل بلا إنترنت (الـ JS محفوظ أيضًا)
+await op.locator("button", { hasText: "إظهار التلميح" }).first().click();
+assert.ok((await op.locator("p", { hasText: "💡" }).count()) > 0, "التمارين تعمل بلا إنترنت");
+await off.setOffline(false);
+await off.close();
+ok("الموقع يفتح ويشتغل بلا إنترنت بعد أول زيارة (Service Worker)");
 
 await browser.close();
 

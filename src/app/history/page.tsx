@@ -73,7 +73,7 @@ export default function HistoryPage() {
                   <span className={`rounded-xl border px-3 py-2 text-center text-sm font-bold ${g.tone}`}>
                     {e.scorePercent}/100
                   </span>
-                  <Link href={`/exam/results/${e.id}`} className="btn-ghost">
+                  <Link href={`/exam/results?id=${encodeURIComponent(e.id)}`} className="btn-ghost">
                     التصحيح
                   </Link>
                 </div>

@@ -1,0 +1,58 @@
+name: نشر الموقع على GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - claude/hebrew-grammar-exam-site-83ge71
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# نشرة واحدة في كل مرة، وإلغاء القديمة إن وصل push جديد
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # لا ننشر بناءً مكسورًا: الفحوص قبل البناء
+      - run: npm run typecheck
+      - run: npm run validate
+      - run: npm run test:logic
+
+      - name: بناء الموقع كملفات ثابتة
+        # اسم الريبو يصبح مجلد الموقع: https://<user>.github.io/<repo>
+        run: NEXT_PUBLIC_BASE_PATH="/${GITHUB_REPOSITORY#*/}" npm run build
+
+      # يمنع GitHub Pages من تجاهل مجلدات تبدأ بشرطة سفلية مثل _next
+      - run: touch out/.nojekyll
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

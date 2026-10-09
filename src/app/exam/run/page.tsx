@@ -58,7 +58,7 @@ export default function RunExamPage() {
     };
     recordAnswers(toRecord, active.id);
     saveExam(record);
-    router.push(`/exam/results/${active.id}`);
+    router.push(`/exam/results?id=${encodeURIComponent(active.id)}`);
   }, [active, questions, recordAnswers, saveExam, router]);
 
   // المؤقت

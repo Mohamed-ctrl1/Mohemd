@@ -181,7 +181,7 @@ export default function HomePage() {
               {exams.slice(0, 5).map((e) => (
                 <li key={e.id} className="flex items-center justify-between gap-3 py-2.5">
                   <div className="min-w-0">
-                    <Link href={`/exam/results/${e.id}`} className="block truncate text-sm font-semibold text-brand-700">
+                    <Link href={`/exam/results?id=${encodeURIComponent(e.id)}`} className="block truncate text-sm font-semibold text-brand-700">
                       {e.title}
                     </Link>
                     <div className="text-[11px] text-ink-500">

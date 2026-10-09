@@ -5,13 +5,16 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/serve-static.mjs 3000 \"\" out",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "validate": "tsx scripts/validate-bank.ts",
     "test": "npm run typecheck && npm run validate && npm run test:logic",
     "test:logic": "tsx scripts/test-logic.ts",
-    "test:e2e": "node scripts/e2e.mjs"
+    "test:e2e": "node scripts/e2e.mjs",
+    "build:pages": "NEXT_PUBLIC_BASE_PATH=/Mohemd next build && touch out/.nojekyll",
+    "preview:pages": "node scripts/serve-static.mjs 4300 /Mohemd out",
+    "icons": "node scripts/make-icons.mjs"
   },
   "dependencies": {
     "next": "15.5.4",

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useMemo } from "react";
 import { useAppData } from "@/components/AppDataProvider";
 import { QuestionCard } from "@/components/QuestionCard";
 import { BarChart, Card, Chip, EmptyState, SectionTitle, StatCard } from "@/components/ui";
@@ -12,7 +12,15 @@ import { ruleLabel } from "@/lib/analysis";
 import type { Topic } from "@/lib/types";
 
 export default function ResultsPage() {
-  const { id } = useParams<{ id: string }>();
+  return (
+    <Suspense fallback={<p className="text-sm text-ink-500">جارٍ التحميل…</p>}>
+      <ResultsInner />
+    </Suspense>
+  );
+}
+
+function ResultsInner() {
+  const id = useSearchParams().get("id") ?? "";
   const router = useRouter();
   const { data, ready, setActiveExam } = useAppData();
   const exam = data.exams.find((e) => e.id === id);
