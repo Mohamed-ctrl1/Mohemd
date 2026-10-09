@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-arabic: var(--font-arabic-next), "Cairo", "Segoe UI", system-ui, sans-serif;
+  --font-hebrew: var(--font-hebrew-next), "Frank Ruhl Libre", "David Libre", "Times New Roman", serif;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-ink-50 text-ink-800 antialiased;
+    font-family: var(--font-arabic);
+  }
+  h1, h2, h3, h4 {
+    @apply font-semibold text-ink-900;
+  }
+  button, a {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer components {
+  /* الكلمات والجمل العبرية تُعرض دائمًا بسياق LTR داخلي وخط عبري */
+  .he {
+    font-family: var(--font-hebrew);
+    direction: rtl;
+    unicode-bidi: isolate;
+    @apply tracking-normal;
+  }
+  .he-block {
+    font-family: var(--font-hebrew);
+    direction: rtl;
+    unicode-bidi: isolate;
+    @apply text-xl leading-loose;
+  }
+  .card {
+    @apply rounded-2xl border border-ink-200 bg-white shadow-card;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800;
+  }
+  .btn-ghost {
+    @apply btn border border-ink-200 bg-white text-ink-700 hover:bg-ink-50;
+  }
+  .btn-soft {
+    @apply btn bg-brand-50 text-brand-700 hover:bg-brand-100;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-ink-700;
+  }
+  .input {
+    @apply w-full rounded-xl border border-ink-300 bg-white px-3 py-2.5 text-base
+           focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100;
+  }
+  .table-wrap {
+    @apply -mx-1 overflow-x-auto px-1;
+  }
+  .data-table {
+    @apply w-full min-w-[34rem] border-collapse text-sm;
+  }
+  .data-table th {
+    @apply border-b border-ink-200 bg-ink-50 px-3 py-2 text-right font-semibold text-ink-700;
+  }
+  .data-table td {
+    @apply border-b border-ink-100 px-3 py-2 align-top;
+  }
+}
+
+/* شريط التقدم */
+.progress-track {
+  @apply h-2 w-full overflow-hidden rounded-full bg-ink-200;
+}
+.progress-fill {
+  @apply h-full rounded-full bg-brand-500 transition-all;
+}
