@@ -1,0 +1,161 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<link rel="stylesheet" href="heebo.css">
+<style>
+@page{size:A4;margin:0}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Heebo,'DejaVu Sans',sans-serif;color:#15181D;background:#fff}
+.page{width:210mm;height:297mm;padding:13mm 14mm;position:relative;page-break-after:always}
+.page:last-child{page-break-after:auto}
+.hdr{display:flex;justify-content:space-between;align-items:baseline;
+  border-bottom:3px solid #15181D;padding-bottom:8px}
+.hdr h1{font-size:21pt;font-weight:900;letter-spacing:-.5px}
+.hdr span{font-size:10pt;color:#6B7280;font-weight:700}
+.intro{margin-top:8px;font-size:10pt;color:#4B5563;line-height:1.6}
+.q{margin-top:11px;border:1px solid #D9DEE5;border-radius:8px;overflow:hidden}
+.qh{background:#15181D;color:#fff;padding:6px 11px;font-size:10.5pt;font-weight:700;
+  display:flex;justify-content:space-between}
+.qh em{font-style:normal;color:#9CA3AF;font-weight:400;font-size:9.5pt}
+.qb{display:flex;gap:9px;padding:8px 11px}
+code{font-family:'DejaVu Sans Mono',monospace;font-size:8.8pt;line-height:1.42;
+  white-space:pre;direction:ltr;text-align:left;display:block;
+  background:#F4F6F8;border:1px solid #E3E8EE;border-radius:6px;padding:7px 9px;flex:1.15}
+table{border-collapse:collapse;flex:1;align-self:flex-start}
+th,td{border:1px solid #C6CDD6;padding:3px 6px;font-size:9pt;text-align:center;height:18px}
+th{background:#EEF1F5;font-weight:700;font-size:9pt}
+.ask{padding:0 11px 8px;font-size:9.5pt;color:#374151}
+.ask b{color:#15181D}
+.foot{position:absolute;bottom:9mm;right:15mm;left:15mm;border-top:1px solid #D9DEE5;
+  padding-top:7px;display:flex;justify-content:space-between;font-size:9pt;color:#6B7280}
+.ansgrid{margin-top:12px;display:flex;flex-direction:column;gap:10px}
+.ans{border:1px solid #D9DEE5;border-radius:8px;padding:10px 12px}
+.ans h3{font-size:11pt;font-weight:900;margin-bottom:6px}
+.ans p{font-size:9.5pt;color:#374151;line-height:1.65}
+.ans .res{margin-top:6px;background:#FFF7E6;border-right:4px solid #E0B252;
+  padding:7px 10px;font-size:10pt;border-radius:4px}
+.tip{margin-top:14px;background:#F4F6F8;border-right:4px solid #15181D;padding:10px 12px;
+  font-size:10pt;line-height:1.7;border-radius:4px}
+</style></head><body>
+
+<div class="page">
+  <div class="hdr"><h1>تمارين تتبّع — C# أساسيات</h1><span>ورقة 1 · حلقات ومصفوفات</span></div>
+  <div class="intro">
+    عبّي جدول التتبّع خطوة بخطوة. لا تشغّل الكود — هيك بيجي بالامتحان بالضبط.
+    الجواب بالصفحة الثانية.
+  </div>
+
+  <div class="q">
+    <div class="qh"><span>تمرين 1 — حلقة for</span><em>سهل</em></div>
+    <div class="qb">
+<code>int sum = 0;
+for (int i = 1; i &lt;= 5; i++)
+{
+    if (i % 2 == 0)
+        sum = sum + i;
+}
+Console.WriteLine(sum);</code>
+      <table>
+        <tr><th>i</th><th>i % 2 == 0</th><th>sum</th></tr>
+        <tr><td>1</td><td></td><td></td></tr>
+        <tr><td>2</td><td></td><td></td></tr>
+        <tr><td>3</td><td></td><td></td></tr>
+        <tr><td>4</td><td></td><td></td></tr>
+        <tr><td>5</td><td></td><td></td></tr>
+      </table>
+    </div>
+    <div class="ask">المطلوب: <b>شو بيطبع البرنامج؟</b></div>
+  </div>
+
+  <div class="q">
+    <div class="qh"><span>تمرين 2 — حلقة while</span><em>متوسط</em></div>
+    <div class="qb">
+<code>int n = 27;
+int count = 0;
+while (n &gt; 1)
+{
+    if (n % 2 == 0)
+        n = n / 2;
+    else
+        n = n - 1;
+    count++;
+}
+Console.WriteLine(count);</code>
+      <table>
+        <tr><th>n قبل</th><th>زوجي؟</th><th>n بعد</th><th>count</th></tr>
+        <tr><td>27</td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td></td></tr>
+      </table>
+    </div>
+    <div class="ask">المطلوب: <b>كم مرة بتدور الحلقة؟</b> (كمّل الجدول لحتى n = 1)</div>
+  </div>
+
+  <div class="q">
+    <div class="qh"><span>تمرين 3 — مصفوفة</span><em>متوسط</em></div>
+    <div class="qb">
+<code>int[] a = { 4, 9, 2, 9, 7 };
+int max = a[0];
+int pos = 0;
+for (int i = 1; i &lt; a.Length; i++)
+{
+    if (a[i] &gt; max)
+    {
+        max = a[i];
+        pos = i;
+    }
+}
+Console.WriteLine(max + " " + pos);</code>
+      <table>
+        <tr><th>i</th><th>a[i]</th><th>a[i] &gt; max</th><th>max</th><th>pos</th></tr>
+        <tr><td>—</td><td>—</td><td>—</td><td>4</td><td>0</td></tr>
+        <tr><td>1</td><td></td><td></td><td></td><td></td></tr>
+        <tr><td>2</td><td></td><td></td><td></td><td></td></tr>
+        <tr><td>3</td><td></td><td></td><td></td><td></td></tr>
+        <tr><td>4</td><td></td><td></td><td></td><td></td></tr>
+      </table>
+    </div>
+    <div class="ask">المطلوب: <b>شو بيطبع؟</b> وليش <b>pos</b> ما تغيّر عند i = 3؟</div>
+  </div>
+
+  <div class="foot"><span>ورقة تمارين — الصفحة 1 من 2</span><span>محمد عثمان</span></div>
+</div>
+
+<div class="page">
+  <div class="hdr"><h1>الحلول والشرح</h1><span>ورقة 1</span></div>
+
+  <div class="ansgrid">
+    <div class="ans">
+      <h3>تمرين 1</h3>
+      <p>الشرط <code style="display:inline;background:none;border:none;padding:0">i % 2 == 0</code> بيمرّ بس على الأرقام الزوجية: 2 و 4.<br>
+      sum: 0 → 2 → 6</p>
+      <div class="res"><b>الجواب: 6</b></div>
+    </div>
+
+    <div class="ans">
+      <h3>تمرين 2</h3>
+      <p>27 فردي → 26 · زوجي → 13 · فردي → 12 · زوجي → 6 · زوجي → 3 · فردي → 2 · زوجي → 1.<br>
+      يعني 7 خطوات لحتى n = 1.</p>
+      <div class="res"><b>الجواب: 7</b></div>
+    </div>
+
+    <div class="ans">
+      <h3>تمرين 3</h3>
+      <p>i=1: 9 &gt; 4 ✔ → max=9, pos=1<br>
+      i=2: 2 &gt; 9 ✘<br>
+      i=3: 9 &gt; 9 ✘ — <b>هون الفخ.</b> الشرط أكبر تماماً، مش أكبر أو يساوي. فلما يتكرر نفس أكبر رقم، البرنامج بيحتفظ بـ<b>أول</b> موقع.<br>
+      i=4: 7 &gt; 9 ✘</p>
+      <div class="res"><b>الجواب: 9 1</b></div>
+    </div>
+  </div>
+
+  <div class="tip">
+    <b>قاعدة الامتحان:</b> أي سؤال فيه <code style="display:inline;background:none;border:none;padding:0">&gt;</code> مقابل
+    <code style="display:inline;background:none;border:none;padding:0">&gt;=</code> هو سؤال مقصود. اسأل حالك دايماً:
+    شو بيصير لما القيمتين متساويتين؟ هون بيضيع نص العلامة.
+  </div>
+
+  <div class="foot"><span>ورقة تمارين — الصفحة 2 من 2</span><span>محمد عثمان</span></div>
+</div>
+</body></html>
